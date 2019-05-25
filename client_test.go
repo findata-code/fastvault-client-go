@@ -66,7 +66,7 @@ func TestFastVaultClient_Create(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		
+
 		if token != "this_is_token" {
 			t.Error("expect this_is_token actual", token)
 		}
