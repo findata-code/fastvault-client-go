@@ -1,6 +1,7 @@
 package fastvault_client_go
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,11 +16,42 @@ type FastVaultClient struct {
 	httpClient http.Client
 }
 
+type SecretCreationResponse struct {
+	Token string `json:"token"`
+}
+
 func New(url string) *FastVaultClient {
 	return &FastVaultClient{
 		url,
 		http.Client{},
 	}
+}
+
+func (c *FastVaultClient) Create(d string) (string, error) {
+	url := c.secretUrl()
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(d)))
+	if err != nil {
+		return "", err
+	}
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var vaultResponse SecretCreationResponse
+	err = json.Unmarshal(b, &vaultResponse)
+	if err != nil {
+		return "", err
+	}
+
+	return vaultResponse.Token, nil
 }
 
 func (c *FastVaultClient) GetString(token string) (string, error) {
@@ -41,8 +73,7 @@ func (c *FastVaultClient) GetJson(token string, v interface{}) error {
 }
 
 func (c *FastVaultClient) get(token string) ([]byte, error) {
-	url := strings.TrimSuffix(c.url, "/")
-	url = fmt.Sprintf("%s/%s", url, "secret")
+	url := c.secretUrl()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -62,4 +93,10 @@ func (c *FastVaultClient) get(token string) ([]byte, error) {
 	}
 
 	return b, nil
+}
+
+func (c *FastVaultClient) secretUrl() string {
+	url := strings.TrimSuffix(c.url, "/")
+	url = fmt.Sprintf("%s/%s", url, "secret")
+	return url
 }

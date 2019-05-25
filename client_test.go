@@ -28,7 +28,20 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "error", 400)
+}
 
+func PostHandler(w http.ResponseWriter, r *http.Request){
+	if r.Method != "POST" {
+		http.Error(w, "error", 400)
+		return
+	}
+
+	if r.URL.Path != "/secret" {
+		http.Error(w, "error", 400)
+		return
+	}
+
+	fmt.Fprintf(w, `{"token":"this_is_token"}`)
 }
 
 func TestNew(t *testing.T) {
@@ -39,9 +52,31 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestFastVaultClient_Create(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/secret", PostHandler)
+
+	go http.ListenAndServe(":9801", mux)
+
+	const url = "http://127.0.0.1:9801"
+
+	t.Run("it should return token when call fastvault with body", func(t *testing.T) {
+		client := New(url)
+		token, err := client.Create("Hello World")
+		if err != nil {
+			t.Error(err)
+		}
+		
+		if token != "this_is_token" {
+			t.Error("expect this_is_token actual", token)
+		}
+	})
+}
+
 func TestFastVaultClient_GetString(t *testing.T) {
-	http.HandleFunc("/secret", GetHandler)
-	go http.ListenAndServe(":9800", nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/secret", GetHandler)
+	go http.ListenAndServe(":9800", mux)
 
 	const url = "http://127.0.0.1:9800"
 
